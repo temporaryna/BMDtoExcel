@@ -367,10 +367,34 @@ namespace Bmd_To_Excel_project
 		{
 			button4.Text = "Load file";
 			button4.FlatStyle = FlatStyle.Standard;
+			
+			string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
 
-		    string text = (string)e.Data.GetData("Text");
+			foreach (string file in files)
+			{
+				if (!File.Exists(file))
+					continue;
 
-            //richTextBox1.LoadFile(text, RichTextBoxStreamType.RichText);
+
+				if (file.EndsWith(".bmd"))
+				{
+					FileStream stream1 = File.Open(file, FileMode.Open);
+					if (LoadItemBmd(stream1))
+						CreateExcelItem();
+					else
+						MessageBox.Show("File loading error");
+
+					stream1.Close();
+				}
+				else if (file.EndsWith(".xls"))
+				{
+					//xls load
+				}
+				else if (file.EndsWith(".xlsx"))
+				{
+					//xlsx load
+				}
+			}
 		}
     }
 }

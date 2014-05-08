@@ -81,7 +81,7 @@
 			this.Controls.Add(this.button4);
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
 			this.Name = "Form1";
-			this.Text = "Form1";
+			this.Text = "BMD <-> Excel";
 			this.ResumeLayout(false);
 
         }
