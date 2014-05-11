@@ -303,8 +303,7 @@ namespace Bmd_To_Excel_project
 				excelworksheet.Activate();
 
 				// заполняем тип вещей
-				int TempStartPos = 3;
-				excelcells = excelworksheet.get_Range("A" + TempStartPos.ToString(), "A" + (TempStartPos + ITEM_MAX_IN_TYPE).ToString());
+				excelcells = excelworksheet.get_Range("A3", "A514");
 				excelcells.Value2 = i;
 
 				progressBar3.Value = i;
