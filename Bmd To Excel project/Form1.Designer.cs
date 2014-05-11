@@ -36,7 +36,6 @@
 			// 
 			// button4
 			// 
-			this.button4.AllowDrop = true;
 			this.button4.Location = new System.Drawing.Point(12, 184);
 			this.button4.Name = "button4";
 			this.button4.Size = new System.Drawing.Size(335, 66);
