@@ -12,15 +12,15 @@ using Excel = Microsoft.Office.Interop.Excel;
 
 namespace Bmd_To_Excel_project
 {
-    public partial class Form1 : Form
-    {
-        public Form1()
-        {
-            InitializeComponent();
-        }
+	public partial class Form1 : Form
+	{
+		public Form1()
+		{
+			InitializeComponent();
+		}
 
 		// окно excel
-        private Excel.Application excelapp;
+		private Excel.Application excelapp;
 
 		// листы и рабочий лист excel
 		private Excel.Sheets excelsheets;
@@ -114,13 +114,13 @@ namespace Bmd_To_Excel_project
 				}
 			}
 			return true;
-        }
+		}
 
 		// TODO: загрузка exl файла
-        private bool LoadExcel()
-        {
+		private bool LoadExcel()
+		{
 			return true;
-        }
+		}
 
 		// структура ячейки
 		public struct ExcColumn
@@ -199,11 +199,11 @@ namespace Bmd_To_Excel_project
 		unsafe private void CreateExcelItem()
 		{
 			// Создаем документ с 16 страницами
-            excelapp = new Excel.Application(); 
-            //excelapp.Visible=true;
+			excelapp = new Excel.Application(); 
+			//excelapp.Visible=true;
 
-            excelapp.SheetsInNewWorkbook=1;
-            Excel.Workbook excelappworkbook = excelapp.Workbooks.Add(Type.Missing);
+			excelapp.SheetsInNewWorkbook=1;
+			Excel.Workbook excelappworkbook = excelapp.Workbooks.Add(Type.Missing);
 
 			String[] SheetsName = new String[] { "Sword", "Axe", "MaceScepter", "Spear", "BowCrossbow", "Staff", "Shield", "Helm", "Armor", "Pants", "Gloves", "Boots", "Accessories", "Misc1", "Misc2", "Scrolls" };
 
@@ -343,7 +343,7 @@ namespace Bmd_To_Excel_project
 			MessageBox.Show("All Done!");
 		}
 		
-        private void button4_Click(object sender, EventArgs e)
+		private void button4_Click(object sender, EventArgs e)
 		{
 			if (openFileDialog1.ShowDialog() == DialogResult.OK)
 			{
@@ -367,10 +367,10 @@ namespace Bmd_To_Excel_project
 					//xlsx load
 				}
 			}
-        }
+		}
 
-        private void button4_DragEnter(object sender, DragEventArgs e)
-        {
+		private void button4_DragEnter(object sender, DragEventArgs e)
+		{
 			button4.Text = "Drop file here!";
 			button4.FlatStyle = FlatStyle.Flat; 
 			if (e.Data.GetDataPresent(DataFormats.FileDrop))
@@ -381,13 +381,13 @@ namespace Bmd_To_Excel_project
 			{
 				e.Effect = DragDropEffects.None;
 			}
-        }
+		}
 
-        private void button4_DragLeave(object sender, EventArgs e)
-        {
+		private void button4_DragLeave(object sender, EventArgs e)
+		{
 			button4.Text = "Load file";
 			button4.FlatStyle = FlatStyle.Standard;
-        }
+		}
 
 		
 		private void button4_DragDrop(object sender, DragEventArgs e)
@@ -423,5 +423,5 @@ namespace Bmd_To_Excel_project
 				}
 			}
 		}
-    }
+	}
 }
