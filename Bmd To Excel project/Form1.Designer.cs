@@ -32,6 +32,7 @@
 			this.openFileDialog1 = new System.Windows.Forms.OpenFileDialog();
 			this.progressBar2 = new System.Windows.Forms.ProgressBar();
 			this.progressBar3 = new System.Windows.Forms.ProgressBar();
+			this.saveFileDialog1 = new System.Windows.Forms.SaveFileDialog();
 			this.SuspendLayout();
 			// 
 			// button4
@@ -50,7 +51,7 @@
 			// openFileDialog1
 			// 
 			this.openFileDialog1.FileName = "Item.bmd";
-			this.openFileDialog1.Filter = "Item BMD file|*.bmd|Excel files|*.xls|New excel files|*.xlsx";
+			this.openFileDialog1.Filter = "Program Item files|*.bmd; *.xls; *.xlsx";
 			// 
 			// progressBar2
 			// 
@@ -69,6 +70,11 @@
 			this.progressBar3.Size = new System.Drawing.Size(335, 23);
 			this.progressBar3.Step = 1;
 			this.progressBar3.TabIndex = 2;
+			// 
+			// saveFileDialog1
+			// 
+			this.saveFileDialog1.FileName = "Item.bmd";
+			this.saveFileDialog1.Filter = "Item BMD file|*.bmd";
 			// 
 			// Form1
 			// 
@@ -91,6 +97,7 @@
 		private System.Windows.Forms.OpenFileDialog openFileDialog1;
 		private System.Windows.Forms.ProgressBar progressBar2;
 		private System.Windows.Forms.ProgressBar progressBar3;
+		private System.Windows.Forms.SaveFileDialog saveFileDialog1;
     }
 }
 

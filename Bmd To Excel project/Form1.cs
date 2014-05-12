@@ -25,18 +25,18 @@ namespace Bmd_To_Excel_project
 		// листы и рабочий лист excel
 		private Excel.Sheets excelsheets;
 		private Excel.Worksheet excelworksheet;
-		
+
 		// выделенные ячейки для работы excel
 		private Excel.Range excelcells;
 
 		// потоковый файл BMD
 		Stream BmdFile;
-		
+
 		const int ITEM_MAX_LINE_SIZE = 84;	// максимальный размер строки item.bmd
 		const int ITEM_MAX_IN_TYPE = 512;	// максимальное количество вещей в одном типе item.bmd
 		const int ITEM_MAX_TYPES = 16;		// максимальное количество типов в item.bmd
 		// максимальный размер файла item.bmd - 688128
-		const int ITEM_TOTAL_LINE_SIZE = ITEM_MAX_IN_TYPE * ITEM_MAX_TYPES * ITEM_MAX_LINE_SIZE; 
+		const int ITEM_TOTAL_LINE_SIZE = ITEM_MAX_IN_TYPE * ITEM_MAX_TYPES * ITEM_MAX_LINE_SIZE;
 
 		// структура для файла item.bmd
 		unsafe public struct ItemEx
@@ -44,11 +44,11 @@ namespace Bmd_To_Excel_project
 			public string ItemName;
 			public fixed Int64 Numbers[54];
 		};
-		public ItemEx[,] Items = new ItemEx[16,512];
+		public ItemEx[,] Items = new ItemEx[16, 512];
 
 		// загрузка потока файла BMD в структуру
 		unsafe private bool LoadItemBmd(Stream File)
-		{			
+		{
 			byte[] lpDstBuf = new byte[ITEM_TOTAL_LINE_SIZE];	// массив для файла после декриптования
 			byte[] XorKeys = new byte[3] { 0xFC, 0xCF, 0xAB };	// ключи для декриптования
 
@@ -84,7 +84,7 @@ namespace Bmd_To_Excel_project
 							// цикл по ячейкам в структуре буфера
 							Int64* buff = buff2 + k;		// переменная в строке буфера
 							int TempPos = start + TempX;	// позиция в массиве item.bmd
-							
+
 							// проверяем тип хранящейся переменной и копируем из массива item.bmd в буфер
 							if (MyItemColumns[k].TypeSize == 1)
 							{
@@ -116,9 +116,175 @@ namespace Bmd_To_Excel_project
 			return true;
 		}
 
-		// TODO: загрузка exl файла
-		private bool LoadExcel()
+		// сохранение структуры в item.bmd
+		unsafe private void SaveItemBmd()
 		{
+			if (saveFileDialog1.ShowDialog() == DialogResult.OK)
+			{
+				// подгатавливаем буфер для структуры вещей
+				byte[] lpDstBuf = new byte[ITEM_TOTAL_LINE_SIZE + 4];
+				byte[] XorKeys = new byte[3] { 0xFC, 0xCF, 0xAB };	// ключи для криптования
+
+				// цикл по всем типам
+				for (int i = 0; i < ITEM_MAX_TYPES; i++)
+				{
+					// цикл по всем вещам в типе
+					for (int j = 0; j < ITEM_MAX_IN_TYPE; j++)
+					{
+						int start = (i * ITEM_MAX_IN_TYPE + j) * ITEM_MAX_LINE_SIZE;	// позиция строки в массиве
+
+						// запись названия вещи (первые 30 символов строки)
+						Array.Copy(System.Text.Encoding.Default.GetBytes(Items[i, j].ItemName), 0, lpDstBuf, start, Items[i, j].ItemName.Length);
+
+						start += 30;	// перемещаем позицию на 30
+
+						// фиксируем переменную структуры в буфер для изменения
+						fixed (Int64* buff2 = Items[i, j].Numbers)
+						{
+							int TempX = 0;	// позиция в строке массива
+
+							for (int k = 0; k < MyItemColumns.Length; k++)
+							{
+								// цикл по ячейкам в структуре буфера
+								Int64* buff = buff2 + k;		// переменная в строке буфера
+								int TempPos = start + TempX;	// позиция в массиве item.bmd
+
+								// проверяем тип хранящейся переменной и копируем из массива item.bmd в буфер
+								if (MyItemColumns[k].TypeSize == 1)
+								{
+									if (MyItemColumns[k].Signed)
+										Array.Copy(BitConverter.GetBytes(Convert.ToSByte(*buff)), 0, lpDstBuf, TempPos, 1);
+									else
+										Array.Copy(BitConverter.GetBytes(Convert.ToByte(*buff)), 0, lpDstBuf, TempPos, 1);
+								}
+								else if (MyItemColumns[k].TypeSize == 2)
+								{
+									if (MyItemColumns[k].Signed)
+										Array.Copy(BitConverter.GetBytes(Convert.ToInt16(*buff)), 0, lpDstBuf, TempPos, 2);
+									else
+										Array.Copy(BitConverter.GetBytes(Convert.ToUInt16(*buff)), 0, lpDstBuf, TempPos, 2);
+								}
+								else if (MyItemColumns[k].TypeSize == 4)
+								{
+									if (MyItemColumns[k].Signed)
+										Array.Copy(BitConverter.GetBytes(Convert.ToInt32(*buff)), 0, lpDstBuf, TempPos, 4);
+									else
+										Array.Copy(BitConverter.GetBytes(Convert.ToUInt32(*buff)), 0, lpDstBuf, TempPos, 4);
+								}
+								// увеличиваем позицию в массиве item.bmd на размер переменной
+								TempX += MyItemColumns[k].TypeSize;
+							}
+						}
+					}
+				}
+
+				// декриптование
+				for (int i = 0; i < ITEM_TOTAL_LINE_SIZE; i++)
+					lpDstBuf[i] ^= XorKeys[i % 3];
+
+				using (FileStream filestream = File.Create(saveFileDialog1.FileName, ITEM_TOTAL_LINE_SIZE + 4))
+				{
+					// считывание потока в массив
+					filestream.Write(lpDstBuf, 0, ITEM_TOTAL_LINE_SIZE);
+
+					// Key Item.bmd for checksum
+					filestream.Write(BitConverter.GetBytes(DecryptKey(lpDstBuf, ITEM_TOTAL_LINE_SIZE, 0xE2F1u)), 0, 4);
+				}
+			}
+		}
+
+
+		uint DecryptKey(byte[] pSrcBuf, int Size, uint Key)
+		{
+			/*	ITEM_ENG_BMD                       = $E2F1;
+				SKILL_ENG_BMD                      = $5A18;
+				ITEMSETTYPE_ENG_BMD                = $E5F1;
+				ITEMSETOPTION_ENG_BMD              = $A2F1;
+				FILTER_BMD                         = $3E7D;
+				MASTERSKILLTREEDATA_BMD            = $2BC1;
+				MASTERSKILLTREETOOLTIPDATA_ENG_BMD = $2BC1;
+				FILTERNAME_BMD                     = $2BC1;
+				ITEMTOOLTIP_BMD                    = $E2F1;
+				ITEMLEVELTOOLTIP_BMD               = $E2F1;
+				ITEMLEVELTOOLTIPTEXT_BMD           = $E2F1;
+
+				FILTER_BMD_BLOCK                   = $14;*/
+
+			uint DecryptedKey = Key << 9;
+			int e = 1;
+			uint result = (((DecryptedKey + BitConverter.ToUInt32(pSrcBuf, 0)) + Key) >> e) ^ (DecryptedKey + BitConverter.ToUInt32(pSrcBuf, 0));
+
+			for (int i = 0; i < Size; )
+			{
+				if (i > 0)
+					result = ((result + Key) >> e) ^ result;
+
+				i += 4;
+				result = result ^ BitConverter.ToUInt32(pSrcBuf, i);
+				i += 4;
+				result = result + BitConverter.ToUInt32(pSrcBuf, i);
+				i += 4;
+				result = result ^ BitConverter.ToUInt32(pSrcBuf, i);
+				i += 4;
+				result = result + BitConverter.ToUInt32(pSrcBuf, i);
+
+				if (e == 1)
+					e = 5;
+				else
+					e = 1;
+			}
+			return result;
+		}
+
+		// загрузка exl файла
+		unsafe private bool LoadExcel(string FileName)
+		{
+			// открываем документ, надеемся что он структурирован этим же конвертором xD
+			excelapp = new Excel.Application();
+			//excelapp.Visible = true;
+			Excel.Workbook excelappworkbook = excelapp.Workbooks.Open(FileName, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing,
+																		Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing, Type.Missing);
+
+			// получаем страницы книги
+			excelsheets = excelappworkbook.Worksheets;
+
+			// сворачиваем для увеличения скорости
+			excelsheets.Application.WindowState = Excel.XlWindowState.xlMinimized;
+			excelsheets.Application.Visible = false;
+
+			for (int i = 0; i < ITEM_MAX_TYPES; i++)
+			{
+				// поехали по страницам книги
+				excelworksheet = (Excel.Worksheet)excelsheets.get_Item(i + 1);
+				excelworksheet.Activate();
+
+				progressBar3.Value = i;
+				for (int j = 0; j < ITEM_MAX_IN_TYPE; j++)
+				{
+					// поехали по строкам
+					progressBar2.Value = j;
+
+					// считываем имя
+					excelcells = (Excel.Range)excelworksheet.Cells[j + 3, 3];
+					Items[i, j].ItemName = Convert.ToString(excelcells.Value2);
+
+					// считываем остальные ячейки
+					fixed (Int64* buff2 = Items[i, j].Numbers)
+					{
+						excelcells = excelworksheet.get_Range(ColumnTempName[3] + Convert.ToString(j + 3), ColumnTempName[3 + MyItemColumns.Length - 1] + Convert.ToString(j + 3));
+						System.Array SomeNumbers = excelcells.Value2 as System.Array;
+
+						int k = 0;
+						foreach (Object Number in SomeNumbers)
+						{
+							Int64* buff = buff2 + k;
+							*buff = Convert.ToInt64(Number);
+							k++;
+						}
+					}
+				}
+			}
+			excelapp.Quit();
 			return true;
 		}
 
@@ -129,7 +295,7 @@ namespace Bmd_To_Excel_project
 			String colSize;	// размер хранения, записываемый заголовком
 			int width;		// ширина ячейки (в excel)
 			int typeSize;	// размер переменной в байтах
-			bool signed;		// переменная со знаком или без
+			bool signed;	// переменная со знаком или без
 			public ExcColumn(String N, String C, int W, int T, bool S)
 			{
 				name = N;
@@ -144,7 +310,7 @@ namespace Bmd_To_Excel_project
 			public int TypeSize { get { return typeSize; } }
 			public bool Signed { get { return signed; } }
 		}
-		
+
 		// структура ячеек Item.bmd в Excel
 		ExcColumn[] MyItemColumns = new ExcColumn[]{
 			new ExcColumn("Two hnd",	"0/65535",	8, 2, false),
@@ -199,16 +365,17 @@ namespace Bmd_To_Excel_project
 		unsafe private void CreateExcelItem()
 		{
 			// Создаем документ с 16 страницами
-			excelapp = new Excel.Application(); 
+			excelapp = new Excel.Application();
 			//excelapp.Visible=true;
 
-			excelapp.SheetsInNewWorkbook=1;
+			excelapp.SheetsInNewWorkbook = 1;
 			Excel.Workbook excelappworkbook = excelapp.Workbooks.Add(Type.Missing);
 
 			String[] SheetsName = new String[] { "Sword", "Axe", "MaceScepter", "Spear", "BowCrossbow", "Staff", "Shield", "Helm", "Armor", "Pants", "Gloves", "Boots", "Accessories", "Misc1", "Misc2", "Scrolls" };
 
+			// получаем страницы книги
 			excelsheets = excelappworkbook.Worksheets;
-			
+
 			// определяем имена страницам и переходим на страницу
 			excelworksheet = (Excel.Worksheet)excelsheets.get_Item(0 + 1);
 			excelworksheet.Name = SheetsName[0];
@@ -216,7 +383,7 @@ namespace Bmd_To_Excel_project
 			excelworksheet.Application.ActiveWindow.SplitColumn = 3;
 			excelworksheet.Application.ActiveWindow.SplitRow = 2;
 			excelworksheet.Application.ActiveWindow.FreezePanes = true;
-			
+
 			// заполнение Index (0.1.2.3...)
 			excelcells = excelworksheet.get_Range("B3", Type.Missing);
 			excelcells.Value2 = 0;
@@ -313,7 +480,7 @@ namespace Bmd_To_Excel_project
 					progressBar2.Value = j;
 
 					// заполняем имя
-					if (Items[i,j].ItemName[0] != '\0')
+					if (Items[i, j].ItemName[0] != '\0')
 					{
 						excelcells = (Excel.Range)excelworksheet.Cells[j + 3, 3];
 						excelcells.Value2 = Items[i, j].ItemName;
@@ -337,11 +504,16 @@ namespace Bmd_To_Excel_project
 
 			// показываем готовый файл
 			excelapp.Visible = true;
+
+			// перепрыгиваем на 1 лист
+			excelworksheet = (Excel.Worksheet)excelsheets.get_Item(0 + 1);
+			excelworksheet.Activate();
+
 			progressBar2.Value = 0;
 			progressBar3.Value = 0;
 			MessageBox.Show("All Done!");
 		}
-		
+
 		private void button4_Click(object sender, EventArgs e)
 		{
 			if (openFileDialog1.ShowDialog() == DialogResult.OK)
@@ -359,10 +531,20 @@ namespace Bmd_To_Excel_project
 				}
 				else if (openFileDialog1.FileName.EndsWith(".xls"))
 				{
+					string FileName = openFileDialog1.FileName;
+					if (LoadExcel(FileName))
+						SaveItemBmd();
+					else
+						MessageBox.Show("File loading error");
 					//xls load
 				}
 				else if (openFileDialog1.FileName.EndsWith(".xlsx"))
 				{
+					string FileName = openFileDialog1.FileName;
+					if (LoadExcel(FileName))
+						SaveItemBmd();
+					else
+						MessageBox.Show("File loading error");
 					//xlsx load
 				}
 			}
@@ -371,7 +553,7 @@ namespace Bmd_To_Excel_project
 		private void button4_DragEnter(object sender, DragEventArgs e)
 		{
 			button4.Text = "Drop file here!";
-			button4.FlatStyle = FlatStyle.Flat; 
+			button4.FlatStyle = FlatStyle.Flat;
 			if (e.Data.GetDataPresent(DataFormats.FileDrop))
 			{
 				e.Effect = DragDropEffects.Move | DragDropEffects.Copy | DragDropEffects.Scroll;
@@ -388,12 +570,12 @@ namespace Bmd_To_Excel_project
 			button4.FlatStyle = FlatStyle.Standard;
 		}
 
-		
+
 		private void button4_DragDrop(object sender, DragEventArgs e)
 		{
 			button4.Text = "Load file";
 			button4.FlatStyle = FlatStyle.Standard;
-			
+
 			string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
 
 			foreach (string file in files)
